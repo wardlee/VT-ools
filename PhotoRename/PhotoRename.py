@@ -112,7 +112,13 @@ def generate_rename_scripts(folder_path):
     
     count = 0
     
-    # 遍历文件夹中的所有文件
+    # 用于跟踪每个目录中已使用的标准文件名
+    used_names = {}
+    
+    # 用于记录文件的原始名称和新名称的映射关系，用于还原脚本
+    name_mapping = {}
+    
+    # 第一遍遍历：获取所有标准文件名和可能的重复项
     for root, _, files in os.walk(folder_path):
         for filename in files:
             if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.mp4', '.mov', '.avi', '.mkv')):
@@ -120,31 +126,49 @@ def generate_rename_scripts(folder_path):
                 relative_path = os.path.relpath(file_path, folder_path)
                 dir_part = os.path.dirname(relative_path)
                 
-                # 获取标准文件名
+                # 获取标准文件名（不含后缀数字）
                 standard_name = get_standard_name(file_path, filename)
                 
-                # 构建重命名命令
-                if dir_part:
-                    # 对于子目录中的文件，先切换到该目录
-                    cd_command = f'cd /d "{os.path.join(folder_path, dir_part)}"\n'
-                    rename_command = f'ren "{filename}" "{standard_name}"'
-                    restore_command = f'ren "{standard_name}" "{filename}"'
-                    
-                    # 添加到重命名脚本（包含切换目录命令）
-                    rename_script += cd_command + rename_command + "\n"
-                    
-                    # 添加到还原脚本（包含切换目录命令）
-                    restore_script += cd_command + restore_command + "\n"
-                else:
-                    # 对于根目录的文件，直接重命名
-                    rename_script += f'ren "{filename}" "{standard_name}"\n'
-                    restore_script += f'ren "{standard_name}" "{filename}"\n'
+                # 为每个目录创建单独的名称跟踪字典
+                dir_key = dir_part if dir_part else "_root_"
+                if dir_key not in used_names:
+                    used_names[dir_key] = {}
                 
-                count += 1
+                # 检查是否有重名，并添加后缀
+                base_name, ext = os.path.splitext(standard_name)
+                type_suffix = "_IMG" if base_name.endswith("_IMG") else "_VID"
+                base_name = base_name[:-4]  # 移除 _IMG 或 _VID 后缀
+                
+                counter = 0
+                final_name = f"{base_name}{type_suffix}{ext}"
+                
+                while final_name in used_names[dir_key]:
+                    counter += 1
+                    final_name = f"{base_name}_{counter}{type_suffix}{ext}"
+                
+                used_names[dir_key][final_name] = True
+                
+                # 记录原始文件名和新文件名的映射
+                if dir_part:
+                    original_path = os.path.join(dir_part, filename)
+                else:
+                    original_path = filename
+                
+                name_mapping[original_path] = final_name
     
-    # 确保脚本最后返回到原始目录
-    rename_script += f"cd /d \"{folder_path}\"\n"
-    restore_script += f"cd /d \"{folder_path}\"\n"
+    # 第二遍遍历：根据处理后的文件名生成重命名脚本
+    for original_path, new_name in name_mapping.items():
+        dir_part = os.path.dirname(original_path)
+        filename = os.path.basename(original_path)
+        
+        if dir_part:
+            rename_script += f'ren "{original_path}" "{new_name}"\n'
+            restore_script += f'ren "{os.path.join(dir_part, new_name)}" "{filename}"\n'
+        else:
+            rename_script += f'ren "{filename}" "{new_name}"\n'
+            restore_script += f'ren "{new_name}" "{filename}"\n'
+        
+        count += 1
     
     rename_script += f"echo 完成！共重命名 {count} 个文件。\npause"
     restore_script += f"echo 完成！共还原 {count} 个文件名。\npause"
