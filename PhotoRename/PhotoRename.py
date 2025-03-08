@@ -187,10 +187,10 @@ def generate_rename_scripts(folder_path):
     restore_script += f"echo 完成！共还原 {count} 个文件名。\npause"
     
     # 写入批处理脚本文件，使用GBK编码（适用于中文Windows系统）
-    with open(os.path.join(folder_path, "重命名为标准格式.bat"), "w", encoding="gbk") as f:
+    with open(os.path.join(folder_path, "重命名为标准格式.bat"), "w", encoding="utf-8-sig") as f:
         f.write(rename_script)
     
-    with open(os.path.join(folder_path, "还原原始文件名.bat"), "w", encoding="gbk") as f:
+    with open(os.path.join(folder_path, "还原原始文件名.bat"), "w", encoding="utf-8-sig") as f:
         f.write(restore_script)
     
     return count, skipped
