@@ -114,8 +114,8 @@ def is_standard_format(filename):
 def generate_rename_scripts(folder_path):
     """生成重命名脚本和还原脚本"""
     # 添加命令行代码页设置，确保中文显示正确
-    rename_script = "@echo off\necho 开始重命名文件...\n"
-    restore_script = "@echo off\necho 开始还原文件名...\n"
+    rename_script = "@echo off\n@chcp 65001 > nul\necho 开始重命名文件...\n"
+    restore_script = "@echo off\n@chcp 65001 > nul\necho 开始还原文件名...\n"
     
     count = 0
     skipped = 0
