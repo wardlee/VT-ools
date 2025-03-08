@@ -46,7 +46,7 @@ def convert_unix_timestamp_to_datetime(timestamp_ms):
 def get_standard_name(file_path, original_name):
     """根据文件名和文件信息获取标准文件名"""
     file_ext = os.path.splitext(original_name)[1].lower()
-    is_video = file_ext in ['.mp4', '.mov', '.avi', '.mkv']
+    is_video = file_ext in ['.mp4', '.mov', '.avi', '.mkv', '.3gp']
     type_suffix = "VID" if is_video else "IMG"
     
     # 从文件名提取日期时间
@@ -104,6 +104,13 @@ def get_standard_name(file_path, original_name):
     
     return standard_name
 
+def is_standard_format(filename):
+    """检查文件名是否已经符合标准格式"""
+    # 标准格式是: YYYYMMDD_HHMMSS_IMG.ext 或 YYYYMMDD_HHMMSS_VID.ext
+    # 也可能有数字后缀: YYYYMMDD_HHMMSS_1_IMG.ext
+    pattern = r'^(\d{8})_(\d{6})(?:_\d+)?_(?:IMG|VID)\.\w+$'
+    return bool(re.match(pattern, filename))
+
 def generate_rename_scripts(folder_path):
     """生成重命名脚本和还原脚本"""
     # 添加命令行代码页设置，确保中文显示正确
@@ -111,6 +118,7 @@ def generate_rename_scripts(folder_path):
     restore_script = "@echo off\necho 开始还原文件名...\n"
     
     count = 0
+    skipped = 0
     
     # 用于跟踪每个目录中已使用的标准文件名
     used_names = {}
@@ -121,7 +129,12 @@ def generate_rename_scripts(folder_path):
     # 第一遍遍历：获取所有标准文件名和可能的重复项
     for root, _, files in os.walk(folder_path):
         for filename in files:
-            if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.mp4', '.mov', '.avi', '.mkv')):
+            if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.mp4', '.mov', '.avi', '.mkv', '.3gp')):
+                # 检查文件名是否已经符合标准格式
+                if is_standard_format(filename):
+                    skipped += 1
+                    continue
+                    
                 file_path = os.path.join(root, filename)
                 relative_path = os.path.relpath(file_path, folder_path)
                 dir_part = os.path.dirname(relative_path)
@@ -170,7 +183,7 @@ def generate_rename_scripts(folder_path):
         
         count += 1
     
-    rename_script += f"echo 完成！共重命名 {count} 个文件。\npause"
+    rename_script += f"echo 完成！共重命名 {count} 个文件，已跳过 {skipped} 个标准格式文件。\npause"
     restore_script += f"echo 完成！共还原 {count} 个文件名。\npause"
     
     # 写入批处理脚本文件，使用GBK编码（适用于中文Windows系统）
@@ -180,7 +193,7 @@ def generate_rename_scripts(folder_path):
     with open(os.path.join(folder_path, "还原原始文件名.bat"), "w", encoding="gbk") as f:
         f.write(restore_script)
     
-    return count
+    return count, skipped
 
 def main():
     print("文件重命名工具\n")
@@ -192,8 +205,8 @@ def main():
     
     print(f"正在分析文件夹: {folder_path}...")
     try:
-        count = generate_rename_scripts(folder_path)
-        print(f"\n处理完成！共找到 {count} 个媒体文件。")
+        count, skipped = generate_rename_scripts(folder_path)
+        print(f"\n处理完成！共找到 {count} 个媒体文件，已跳过 {skipped} 个标准格式文件。")
         print(f"已在 {folder_path} 生成以下批处理文件:")
         print("1. 重命名为标准格式.bat - 执行此文件将所有文件重命名为标准格式")
         print("2. 还原原始文件名.bat - 执行此文件可还原为原始文件名")
